@@ -27,20 +27,47 @@ BOARD_URL = "https://shop.runsra.org/2026-cim-bib-transfer/"
 STATE = Path(os.environ.get("STATE_FILE") or Path(__file__).with_name("seen.json"))
 NTFY_TOPIC = os.environ.get("NTFY_TOPIC", "")
 
+# Explicit seller statements. Seekers often say "transfer", "first", "can complete
+# the transfer", so only phrases a seller would use about their own bib count.
 OFFER = re.compile(
-    r"my (bib|entry|spot|registration)|selling|giving (up|away)|can'?t run|cannot run|"
-    r"won'?t be able to (run|race|make)|unable to (run|race)|injur|have an? (extra )?(bib|entry)|"
-    r"bib (is )?available|transfer(ring)? (my|it)|up for grabs|first (person|one|to)|"
-    r"offering (my|a|an|one)|will transfer|sent (the|a) transfer|have to (drop|withdraw|pull out)",
+    r"\bi (have|got) (a|an|one|my|1|an extra|a cim|a full)\b[^.!?]{0,40}\b(bib|entry)|"
+    r"\bmy (cim |marathon |full marathon |race )?(bib|entry|spot|registration)\b|"
+    r"\btransfer(ring)? my\b|\b(giving (up|away)|selling|offering) my\b|"
+    r"\b(can'?t|cannot|won'?t be able to|unable to) (run|race|make it)\b|"
+    r"\bbib (is )?(available|up for (grabs|transfer))\b|\bup for grabs\b|\bfirst come\b",
     re.I,
 )
+WEAK_OFFER = re.compile(r"\binjur(y|ed)\b|\bhave to (drop|withdraw|pull out)\b", re.I)
 SEEK = re.compile(
-    r"looking for|seeking|in search of|\biso\b|need(ing)? a bib|would love (a|to (take|get|run))|"
-    r"hoping (to|for)|\b(i'?m|i am|am) (very |still |definitely )?interested|want(ing)? (a|to buy)|if (you|anyone) (has|have)|"
-    r"sorry about your|still (up for grabs|available)\?|\$\d+ (to|for)|(pay|offer(ing)?) (an )?extra",
+    r"\blooking (for|to)\b|\bseeking\b|\bsearch(ing)?\b|\biso\b|\bneed(ing)?\b|\bwould love\b|"
+    r"\bhoping\b|\b(i'?m|i am) (very |still |definitely |also )?interested\b|\bwant(ing)?\b|"
+    r"\bif (you|anyone|someone) (has|have|is)\b|\bsorry (about|to hear)\b|\$\d+|\bextra (\$|money|cash)\b|"
+    r"\b(can|could|will|happy to|able to|ready to) (complete|accept|do|take|finalize)\b[^.!?]{0,30}\btransfer|"
+    r"\baccept (the |a |your )?transfer\b|\bmy first (marathon|one|full|cim)\b|\bstill (available|up for grabs)\b|"
+    r"\b(i'?d|i would) (love|be happy) to (take|get|have)\b|\bplease (consider|pick) me\b",
     re.I,
 )
-STRONG = re.compile(r"my (bib|entry|spot|registration)|i have an? (extra )?(bib|entry)|can'?t run|cannot run|unable to (run|race)", re.I)
+# Seller statements clear enough to count even when seeker-ish words also appear
+# ("I have a bib for you if you're still interested").
+STRONG = re.compile(
+    r"\bi (have|got) (a|an|one|my|1|an extra|a cim|a full)\b[^.!?]{0,40}\b(bib|entry)|\btransfer(ring)? my (bib|entry)\b|"
+    r"\bi (can'?t|cannot|am unable to|won'?t be able to) (run|race|use)\b",
+    re.I,
+)
+# Seekers, thank-you notes, and offers that are already gone.
+NEVER = re.compile(
+    r"\blooking (for|to)\b|\bhop(e|ing) to (get|find|snag|land|receive)\b|\bif you can'?t\b|"
+    r"\bmy first (marathon|one|full|cim)\b|\$\d+|\btransferred (you )?my\b|"
+    r"\bcan'?t be transferred\b|\bgrateful\b|\bthank(s| you)( so much)? for\b|\bsorry (you|about|to hear)\b|"
+    r"\bdo you (still )?have\b|\bit'?s (sold|gone|taken)\b|\btoo late\b|\bairbnb\b|\bice cream\b",
+    re.I,
+)
+# In a reply, these mean the seller already picked someone.
+CLAIMED = re.compile(
+    r"\bmy bib to you\b|\bmove forward\b|\b(just )?sent you\b|\bi'?ll (request|start|initiate) the transfer\b|"
+    r"\bplease accept\b|\bgo ahead and transfer\b",
+    re.I,
+)
 
 
 def fetch(pages: int) -> list:
@@ -58,18 +85,22 @@ def fetch(pages: int) -> list:
 
 def text_of(comment: dict) -> str:
     raw = re.sub(r"<[^>]+>", " ", comment["content"]["rendered"])
-    return re.sub(r"\s+", " ", html.unescape(raw)).strip()
+    text = html.unescape(raw).replace("\u2019", "'").replace("\u2018", "'")
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def is_offer(comment: dict) -> bool:
     text = text_of(comment)
-    if not OFFER.search(text):
+    if NEVER.search(text):
         return False
-    seeking = SEEK.search(text)
-    if comment["parent"] == 0:
-        return not seeking or bool(STRONG.search(text) and not re.search(r"looking for", text, re.I))
-    # Replies are mostly people claiming someone else's offer; only flag clear sellers.
-    return bool(STRONG.search(text)) and not seeking
+    if comment["parent"] != 0 and CLAIMED.search(text):
+        return False
+    if SEEK.search(text):
+        return bool(STRONG.search(text))
+    if OFFER.search(text):
+        return True
+    # "I got injured" alone is only a seller signal in a new top-level post.
+    return comment["parent"] == 0 and bool(WEAK_OFFER.search(text))
 
 
 def line(comment: dict) -> str:

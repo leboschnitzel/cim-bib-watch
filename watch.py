@@ -79,7 +79,12 @@ def fetch(pages: int) -> list:
         )
         req = urllib.request.Request(url, headers={"User-Agent": "cim-bib-watch/1.0"})
         with urllib.request.urlopen(req, timeout=30) as resp:
-            comments.extend(json.load(resp))
+            body = resp.read()
+        try:
+            comments.extend(json.loads(body))
+        except ValueError:
+            # The site sometimes answers with an HTML error/challenge page.
+            raise RuntimeError(f"board returned non-JSON: {body[:120]!r}") from None
     return comments
 
 

@@ -50,7 +50,7 @@ SEEK = re.compile(
 # Seller statements clear enough to count even when seeker-ish words also appear
 # ("I have a bib for you if you're still interested").
 STRONG = re.compile(
-    r"\bi (have|got) (a|an|one|my|1|an extra|a cim|a full)\b[^.!?]{0,40}\b(bib|entry)|\btransfer(ring)? my (bib|entry)\b|"
+    r"\bi (have|got) (a|an|one|my|1|an extra|a cim|a full)\b[^.!?]{0,40}\b(bib|entry)|"
     r"\bi (can'?t|cannot|am unable to|won'?t be able to) (run|race|use)\b",
     re.I,
 )
@@ -59,7 +59,7 @@ NEVER = re.compile(
     r"\blooking (for|to)\b|\bhop(e|ing) to (get|find|snag|land|receive)\b|\bif you can'?t\b|"
     r"\bmy first (marathon|one|full|cim)\b|\$\d+|\btransferred (you )?my\b|"
     r"\bcan'?t be transferred\b|\bgrateful\b|\bthank(s| you)( so much)? for\b|\bsorry (you|about|to hear)\b|"
-    r"\bdo you (still )?have\b|\bit'?s (sold|gone|taken)\b|\btoo late\b|\bairbnb\b|\bice cream\b",
+    r"\bdo you (still )?have\b|\bit'?s (sold|gone|taken)\b|\btoo late\b|\bairbnb\b",
     re.I,
 )
 # In a reply, these mean the seller already picked someone.

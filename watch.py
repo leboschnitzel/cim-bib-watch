@@ -57,6 +57,7 @@ STRONG = re.compile(
 # Seekers, thank-you notes, and offers that are already gone.
 NEVER = re.compile(
     r"\blooking (for|to)\b|\bhop(e|ing) to (get|find|snag|land|receive)\b|\bif you can'?t\b|"
+    r"\b(still )?searching\b|\bas if\b|\bif i (have|had|got)\b|"
     r"\bmy first (marathon|one|full|cim)\b|\$\d+|\btransferred (you )?my\b|"
     r"\bcan'?t be transferred\b|\bgrateful\b|\bthank(s| you)( so much)? for\b|\bsorry (you|about|to hear)\b|"
     r"\bdo you (still )?have\b|\bit'?s (sold|gone|taken)\b|\btoo late\b|\bairbnb\b",
